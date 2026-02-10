@@ -38,7 +38,7 @@ export default function AdBannerBottom({ slot }: AdBannerBottomProps) {
         data-ad-client="ca-pub-4828862970866548"
         data-ad-slot={slot}
         data-ad-format="horizontal"
-        data-full-width-responsive="true"
+        data-full-width-responsive="false"
       />
     </div>
   );
