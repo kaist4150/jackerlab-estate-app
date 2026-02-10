@@ -6,7 +6,7 @@ export default function AdSenseScript() {
   return (
     <Script
       async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4828862970866548"
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
       crossOrigin="anonymous"
       strategy="afterInteractive"
     />

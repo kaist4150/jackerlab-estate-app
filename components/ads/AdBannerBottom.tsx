@@ -37,8 +37,8 @@ export default function AdBannerBottom({ slot }: AdBannerBottomProps) {
         style={{ display: 'block', maxWidth: '100%', width: '100%' }}
         data-ad-client="ca-pub-4828862970866548"
         data-ad-slot={slot}
-        data-ad-format="horizontal"
-        data-full-width-responsive="false"
+        data-ad-format="auto"
+        data-full-width-responsive="true"
       />
     </div>
   );
