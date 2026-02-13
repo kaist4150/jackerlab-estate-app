@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { LAWD_CD } from '@/lib/constants';
 import { extractXmlItems, getXmlValue } from '@/lib/xml-parser';
 
-// 국토교통부 아파트 실거래 API
-const SALE_API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev';
-const RENT_API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent';
+// 국토교통부 단독/다가구 실거래 API
+const SALE_API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcSHTrade/getRTMSDataSvcSHTrade';
+const RENT_API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcSHRent/getRTMSDataSvcSHRent';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -64,9 +64,9 @@ export async function GET(request: NextRequest) {
 
 function parseSaleItems(xmlItems: string[], district: string) {
   const items = xmlItems.map((itemXml, index) => {
-    const name = getXmlValue(itemXml, '아파트', 'aptNm');
+    const name = getXmlValue(itemXml, '단독다가구', 'houseNm');
     const priceStr = getXmlValue(itemXml, '거래금액', 'dealAmount').replace(/,/g, '');
-    if (!name || !priceStr) return null;
+    if (!priceStr) return null;
 
     const year = getXmlValue(itemXml, '년', 'dealYear');
     const month = getXmlValue(itemXml, '월', 'dealMonth');
@@ -74,12 +74,12 @@ function parseSaleItems(xmlItems: string[], district: string) {
 
     return {
       id: `${district}-${index}`,
-      name,
+      name: name || '-',
       district,
       dong: getXmlValue(itemXml, '법정동', 'umdNm'),
       jibun: getXmlValue(itemXml, '지번', 'jibun'),
-      size: parseFloat(getXmlValue(itemXml, '전용면적', 'excluUseAr')) || 0,
-      floor: parseInt(getXmlValue(itemXml, '층', 'floor')) || 0,
+      landArea: parseFloat(getXmlValue(itemXml, '대지면적', 'platAr')) || 0,
+      totalFloorArea: parseFloat(getXmlValue(itemXml, '연면적', 'totAr')) || 0,
       price: parseInt(priceStr) || 0,
       date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
       built: parseInt(getXmlValue(itemXml, '건축년도', 'buildYear')) || 0,
@@ -92,8 +92,7 @@ function parseSaleItems(xmlItems: string[], district: string) {
 
 function parseRentItems(xmlItems: string[], district: string) {
   const items = xmlItems.map((itemXml, index) => {
-    const name = getXmlValue(itemXml, '아파트', 'aptNm');
-    if (!name) return null;
+    const name = getXmlValue(itemXml, '단독다가구', 'houseNm');
 
     const year = getXmlValue(itemXml, '년', 'dealYear');
     const month = getXmlValue(itemXml, '월', 'dealMonth');
@@ -104,12 +103,12 @@ function parseRentItems(xmlItems: string[], district: string) {
 
     return {
       id: `${district}-${index}`,
-      name,
+      name: name || '-',
       district,
       dong: getXmlValue(itemXml, '법정동', 'umdNm'),
       jibun: getXmlValue(itemXml, '지번', 'jibun'),
-      size: parseFloat(getXmlValue(itemXml, '전용면적', 'excluUseAr')) || 0,
-      floor: parseInt(getXmlValue(itemXml, '층', 'floor')) || 0,
+      landArea: parseFloat(getXmlValue(itemXml, '대지면적', 'platAr')) || 0,
+      totalFloorArea: parseFloat(getXmlValue(itemXml, '연면적', 'totAr')) || 0,
       deposit: parseInt(depositStr) || 0,
       monthlyRent,
       rentType: monthlyRent === 0 ? '전세' : '월세',

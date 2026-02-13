@@ -1,20 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building, Search, MapPin, Users, Calendar, Loader2, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Building, Search, MapPin, Users, Calendar, Loader2, AlertCircle, ChevronRight } from 'lucide-react';
 
 interface ComplexInfo {
   id: string;
-  complexCode: string;
+  complexPk: string;
   name: string;
   address: string;
   sido: string;
   sigungu: string;
-  dong: string;
   totalUnits: number;
   totalBuildings: number;
-  builtYear: number;
-  managementType: string;
+  approvalDate: string;
 }
 
 const sidoList = ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도'];
@@ -142,47 +141,53 @@ export default function ComplexSearchPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data.map((complex) => (
-              <div
-                key={complex.id}
-                className="bg-white rounded-xl border border-gray-200 p-5 hover:border-emerald-300 transition-colors"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{complex.name}</h3>
-                    <p className="text-sm text-gray-500">{complex.complexCode}</p>
+            {data.map((complex) => {
+              const approvalYear = complex.approvalDate ? complex.approvalDate.substring(0, 4) : '';
+              const detailParams = new URLSearchParams({
+                name: complex.name,
+                address: complex.address,
+                units: String(complex.totalUnits),
+                buildings: String(complex.totalBuildings),
+                built: approvalYear,
+              });
+              return (
+                <Link
+                  key={complex.id}
+                  href={`/complex/${complex.complexPk}?${detailParams}`}
+                  className="bg-white rounded-xl border border-gray-200 p-5 hover:border-emerald-300 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">{complex.name}</h3>
+                    </div>
+                    <ChevronRight size={20} className="text-gray-300 group-hover:text-emerald-500 transition-colors flex-shrink-0 mt-1" />
                   </div>
-                  {complex.managementType && (
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                      {complex.managementType}
-                    </span>
-                  )}
-                </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <MapPin size={14} className="text-gray-400" />
-                    <span className="text-gray-600">{complex.address || `${complex.sido} ${complex.sigungu} ${complex.dong}`}</span>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <MapPin size={14} className="text-gray-400" />
+                      <span className="text-gray-600">{complex.address}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Users size={14} className="text-gray-400" />
+                        <span className="text-gray-600">{complex.totalUnits.toLocaleString()}세대</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Building size={14} className="text-gray-400" />
+                        <span className="text-gray-600">{complex.totalBuildings}개동</span>
+                      </div>
+                    </div>
+                    {approvalYear && (
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-gray-400" />
+                        <span className="text-gray-600">{approvalYear}년 준공</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Users size={14} className="text-gray-400" />
-                      <span className="text-gray-600">{complex.totalUnits.toLocaleString()}세대</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Building size={14} className="text-gray-400" />
-                      <span className="text-gray-600">{complex.totalBuildings}개동</span>
-                    </div>
-                  </div>
-                  {complex.builtYear > 0 && (
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-gray-400" />
-                      <span className="text-gray-600">{complex.builtYear}년 준공</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
 
           {data.length === 0 && (

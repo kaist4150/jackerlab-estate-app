@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const complexPk = searchParams.get('complexPk') || '';
   const address = searchParams.get('address') || '';
+  const sido = searchParams.get('sido') || '';
+  const sigungu = searchParams.get('sigungu') || '';
+  const name = searchParams.get('name') || '';
   const approvalDateStart = searchParams.get('approvalDateStart') || '';
   const approvalDateEnd = searchParams.get('approvalDateEnd') || '';
   const page = searchParams.get('page') || '1';
@@ -46,6 +49,13 @@ export async function GET(request: NextRequest) {
     }
     if (address) {
       url.searchParams.set('cond[ADRES::LIKE]', address);
+    } else if (sido) {
+      // sido/sigungu로 주소 검색 조합
+      const addrSearch = sigungu ? `${sido} ${sigungu}` : sido;
+      url.searchParams.set('cond[ADRES::LIKE]', addrSearch);
+    }
+    if (name) {
+      url.searchParams.set('cond[COMPLEX_NM::LIKE]', name);
     }
     if (approvalDateStart) {
       url.searchParams.set('cond[USEAPR_DT::GTE]', approvalDateStart);
@@ -57,7 +67,6 @@ export async function GET(request: NextRequest) {
     const response = await fetch(url.toString());
     const json = await response.json();
 
-    // odcloud 응답 구조
     const items = parseJsonToItems(json.data || []);
 
     return NextResponse.json({
@@ -78,15 +87,19 @@ export async function GET(request: NextRequest) {
 }
 
 function parseJsonToItems(data: any[]): ComplexInfo[] {
-  return data.map((item, index) => ({
-    id: `complex-${index}`,
-    complexPk: item.COMPLEX_PK || '',
-    name: item.COMPLEX_NM || '',
-    address: item.ADRES || '',
-    sido: item.SIDO_NM || '',
-    sigungu: item.SIGUNGU_NM || '',
-    totalUnits: parseInt(item.TOT_HSHLD_CNT) || 0,
-    totalBuildings: parseInt(item.TOT_DONG_CNT) || 0,
-    approvalDate: item.USEAPR_DT || '',
-  })).sort((a, b) => b.totalUnits - a.totalUnits);
+  return data.map((item, index) => {
+    const addr = item.ADRES || '';
+    const parts = addr.split(' ');
+    return {
+      id: `complex-${index}`,
+      complexPk: item.COMPLEX_PK || '',
+      name: item.COMPLEX_NM1 || item.COMPLEX_NM2 || item.COMPLEX_NM || '',
+      address: addr,
+      sido: parts[0] || '',
+      sigungu: parts[1] || '',
+      totalUnits: parseInt(item.UNIT_CNT) || parseInt(item.TOT_HSHLD_CNT) || 0,
+      totalBuildings: parseInt(item.DONG_CNT) || parseInt(item.TOT_DONG_CNT) || 0,
+      approvalDate: item.USEAPR_DT || '',
+    };
+  }).sort((a, b) => b.totalUnits - a.totalUnits);
 }

@@ -1,55 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LAWD_CD } from '@/lib/constants';
+import { extractXmlItems, getXmlValue } from '@/lib/xml-parser';
 
-// 국토교통부 오피스텔 매매 실거래 API
-const API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade';
-
-// 서울시 구별 법정동 코드
-const LAWD_CD: Record<string, string> = {
-  '강남구': '11680',
-  '강동구': '11740',
-  '강북구': '11305',
-  '강서구': '11500',
-  '관악구': '11620',
-  '광진구': '11215',
-  '구로구': '11530',
-  '금천구': '11545',
-  '노원구': '11350',
-  '도봉구': '11320',
-  '동대문구': '11230',
-  '동작구': '11590',
-  '마포구': '11440',
-  '서대문구': '11410',
-  '서초구': '11650',
-  '성동구': '11200',
-  '성북구': '11290',
-  '송파구': '11710',
-  '양천구': '11470',
-  '영등포구': '11560',
-  '용산구': '11170',
-  '은평구': '11380',
-  '종로구': '11110',
-  '중구': '11140',
-  '중랑구': '11260',
-};
-
-interface OfficetelTrade {
-  id: string;
-  name: string;
-  district: string;
-  dong: string;
-  jibun: string;
-  size: number;
-  floor: number;
-  price: number;
-  date: string;
-  built: number;
-}
+// 국토교통부 오피스텔 실거래 API
+const SALE_API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade';
+const RENT_API_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const district = searchParams.get('district') || '강남구';
   const year = searchParams.get('year') || new Date().getFullYear().toString();
   const month = searchParams.get('month') || String(new Date().getMonth() + 1).padStart(2, '0');
+  const type = searchParams.get('type') || 'sale';
 
   const apiKey = process.env.DATA_GO_KR_API_KEY;
 
@@ -68,26 +30,26 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const dealYmd = `${year}${month}`;
-
   try {
-    const url = new URL(API_URL);
+    const apiUrl = type === 'rent' ? RENT_API_URL : SALE_API_URL;
+    const url = new URL(apiUrl);
     url.searchParams.set('serviceKey', apiKey);
     url.searchParams.set('LAWD_CD', lawdCd);
-    url.searchParams.set('DEAL_YMD', dealYmd);
+    url.searchParams.set('DEAL_YMD', `${year}${month}`);
     url.searchParams.set('pageNo', '1');
     url.searchParams.set('numOfRows', '1000');
 
     const response = await fetch(url.toString());
     const xmlText = await response.text();
+    const xmlItems = extractXmlItems(xmlText);
 
-    const items = parseXmlToItems(xmlText, district);
+    const items = type === 'rent'
+      ? parseRentItems(xmlItems, district)
+      : parseSaleItems(xmlItems, district);
 
     return NextResponse.json({
       success: true,
-      district,
-      year,
-      month,
+      district, year, month, type,
       count: items.length,
       data: items,
     });
@@ -100,48 +62,62 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function parseXmlToItems(xml: string, district: string): OfficetelTrade[] {
-  const items: OfficetelTrade[] = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-  let index = 0;
+function parseSaleItems(xmlItems: string[], district: string) {
+  const items = xmlItems.map((itemXml, index) => {
+    const name = getXmlValue(itemXml, '단지', 'offiNm');
+    const priceStr = getXmlValue(itemXml, '거래금액', 'dealAmount').replace(/,/g, '');
+    if (!name || !priceStr) return null;
 
-  while ((match = itemRegex.exec(xml)) !== null) {
-    const itemXml = match[1];
+    const year = getXmlValue(itemXml, '년', 'dealYear');
+    const month = getXmlValue(itemXml, '월', 'dealMonth');
+    const day = getXmlValue(itemXml, '일', 'dealDay');
 
-    const getValue = (tag: string): string => {
-      const tagRegex = new RegExp(`<${tag}>([^<]*)</${tag}>`);
-      const m = itemXml.match(tagRegex);
-      return m ? m[1].trim() : '';
+    return {
+      id: `${district}-${index}`,
+      name,
+      district,
+      dong: getXmlValue(itemXml, '법정동', 'umdNm'),
+      jibun: getXmlValue(itemXml, '지번', 'jibun'),
+      size: parseFloat(getXmlValue(itemXml, '전용면적', 'excluUseAr')) || 0,
+      floor: parseInt(getXmlValue(itemXml, '층', 'floor')) || 0,
+      price: parseInt(priceStr) || 0,
+      date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      built: parseInt(getXmlValue(itemXml, '건축년도', 'buildYear')) || 0,
     };
+  }).filter(Boolean);
 
-    const name = getValue('단지') || getValue('offiNm');
-    const dong = getValue('법정동') || getValue('umdNm');
-    const jibun = getValue('지번') || getValue('jibun');
-    const sizeStr = getValue('전용면적') || getValue('excluUseAr');
-    const floorStr = getValue('층') || getValue('floor');
-    const priceStr = (getValue('거래금액') || getValue('dealAmount')).replace(/,/g, '');
-    const yearVal = getValue('년') || getValue('dealYear');
-    const monthVal = getValue('월') || getValue('dealMonth');
-    const dayVal = getValue('일') || getValue('dealDay');
-    const builtStr = getValue('건축년도') || getValue('buildYear');
+  items.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return items;
+}
 
-    if (name && priceStr) {
-      items.push({
-        id: `${district}-${index++}`,
-        name,
-        district,
-        dong,
-        jibun,
-        size: parseFloat(sizeStr) || 0,
-        floor: parseInt(floorStr) || 0,
-        price: parseInt(priceStr) || 0,
-        date: `${yearVal}-${monthVal.padStart(2, '0')}-${dayVal.padStart(2, '0')}`,
-        built: parseInt(builtStr) || 0,
-      });
-    }
-  }
+function parseRentItems(xmlItems: string[], district: string) {
+  const items = xmlItems.map((itemXml, index) => {
+    const name = getXmlValue(itemXml, '단지', 'offiNm');
+    if (!name) return null;
 
-  items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const year = getXmlValue(itemXml, '년', 'dealYear');
+    const month = getXmlValue(itemXml, '월', 'dealMonth');
+    const day = getXmlValue(itemXml, '일', 'dealDay');
+    const depositStr = getXmlValue(itemXml, '보증금액', 'deposit').replace(/,/g, '');
+    const monthlyStr = getXmlValue(itemXml, '월세금액', 'monthlyRentAmount').replace(/,/g, '');
+    const monthlyRent = parseInt(monthlyStr) || 0;
+
+    return {
+      id: `${district}-${index}`,
+      name,
+      district,
+      dong: getXmlValue(itemXml, '법정동', 'umdNm'),
+      jibun: getXmlValue(itemXml, '지번', 'jibun'),
+      size: parseFloat(getXmlValue(itemXml, '전용면적', 'excluUseAr')) || 0,
+      floor: parseInt(getXmlValue(itemXml, '층', 'floor')) || 0,
+      deposit: parseInt(depositStr) || 0,
+      monthlyRent,
+      rentType: monthlyRent === 0 ? '전세' : '월세',
+      date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      built: parseInt(getXmlValue(itemXml, '건축년도', 'buildYear')) || 0,
+    };
+  }).filter(Boolean);
+
+  items.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
   return items;
 }

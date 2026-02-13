@@ -15,8 +15,7 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Mountain,
-  Search,
+  Landmark,
 } from 'lucide-react';
 
 const menuItems = [
@@ -32,6 +31,10 @@ const menuItems = [
       { label: '아파트', path: '/trade/apartment' },
       { label: '오피스텔', path: '/trade/officetel' },
       { label: '연립다세대', path: '/trade/house' },
+      { label: '단독/다가구', path: '/trade/detached' },
+      { label: '토지', path: '/trade/land' },
+      { label: '상업/업무용', path: '/trade/commercial' },
+      { label: '공장/창고', path: '/trade/factory' },
     ],
   },
   {
@@ -53,12 +56,23 @@ const menuItems = [
     ],
   },
   {
+    label: '부동산 정보',
+    icon: Landmark,
+    children: [
+      { label: '아파트 단지 검색', path: '/complex/search' },
+      { label: '건물 통합 조회', path: '/building/info' },
+      { label: '경매 정보', path: '/auction/info' },
+    ],
+  },
+  {
     label: '지역 정보',
     icon: MapPin,
     children: [
       { label: '지역 비교', path: '/area/compare' },
       { label: '인구/세대', path: '/area/population' },
       { label: '개발 호재', path: '/area/development' },
+      { label: '학군 정보', path: '/area/school' },
+      { label: '주변 인프라', path: '/area/infra' },
     ],
   },
   {
@@ -68,14 +82,6 @@ const menuItems = [
       { label: '청약 일정', path: '/subscription/schedule' },
       { label: '청약 경쟁률', path: '/subscription/competition' },
       { label: '청약통장 현황', path: '/subscription/account' },
-    ],
-  },
-  {
-    label: '단지/토지',
-    icon: Mountain,
-    children: [
-      { label: '아파트 단지 검색', path: '/complex/search' },
-      { label: '지가 변동률', path: '/land/price-change' },
     ],
   },
   {
@@ -94,7 +100,7 @@ const menuItems = [
 export default function Navigation() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<string[]>(['실거래가', '시세/현황', '가격 추이', '지역 정보', '청약 정보', '단지/토지', '계산기']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['실거래가', '시세/현황', '가격 추이', '부동산 정보', '지역 정보', '청약 정보', '계산기']);
 
   const toggleExpanded = (label: string) => {
     setExpandedItems((prev) =>

@@ -1,23 +1,23 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Building2, Search, Calendar, MapPin, Loader2, AlertCircle } from 'lucide-react';
+import { Home, Search, Calendar, MapPin, Loader2, AlertCircle } from 'lucide-react';
 import { SEOUL_DISTRICTS } from '@/lib/constants';
 import { formatPrice } from '@/lib/format';
 import TradeTab from '@/components/TradeTab';
 
 interface SaleItem {
   id: string; name: string; district: string; dong: string; jibun: string;
-  size: number; floor: number; price: number; date: string; built: number;
+  landArea: number; totalFloorArea: number; price: number; date: string; built: number;
 }
 
 interface RentItem {
   id: string; name: string; district: string; dong: string; jibun: string;
-  size: number; floor: number; deposit: number; monthlyRent: number;
+  landArea: number; totalFloorArea: number; deposit: number; monthlyRent: number;
   rentType: '전세' | '월세'; date: string; built: number;
 }
 
-export default function ApartmentTradePage() {
+export default function DetachedTradePage() {
   const [data, setData] = useState<(SaleItem | RentItem)[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function ApartmentTradePage() {
         type: tradeType,
       });
 
-      const response = await fetch(`/api/trade/apartment?${params}`);
+      const response = await fetch(`/api/trade/detached?${params}`);
       const result = await response.json();
 
       if (result.success) {
@@ -81,7 +81,7 @@ export default function ApartmentTradePage() {
         const bPrice = 'price' in b ? b.price : b.deposit;
         comparison = aPrice - bPrice;
       }
-      else if (sortBy === 'size') comparison = a.size - b.size;
+      else if (sortBy === 'size') comparison = a.landArea - b.landArea;
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
@@ -110,8 +110,8 @@ export default function ApartmentTradePage() {
     <div className="space-y-6">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <Building2 className="text-emerald-600" size={28} />
-          <h1 className="text-2xl font-bold text-gray-900">아파트 실거래가</h1>
+          <Home className="text-emerald-600" size={28} />
+          <h1 className="text-2xl font-bold text-gray-900">단독/다가구 실거래가</h1>
         </div>
         <p className="text-sm text-gray-500">국토교통부 실거래가 공개시스템 기준</p>
       </div>
@@ -155,7 +155,7 @@ export default function ApartmentTradePage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="아파트명, 동 검색..."
+              placeholder="건물명, 동 검색..."
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
@@ -206,12 +206,12 @@ export default function ApartmentTradePage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr className="text-left text-sm text-gray-600">
-                  <th className="px-4 py-3 font-semibold">아파트명</th>
+                  <th className="px-4 py-3 font-semibold">건물명</th>
                   <th className="px-4 py-3 font-semibold">위치</th>
                   <th className="px-4 py-3 font-semibold cursor-pointer hover:text-emerald-600" onClick={() => handleSort('size')}>
-                    면적 {sortBy === 'size' && (sortOrder === 'desc' ? '↓' : '↑')}
+                    대지면적 {sortBy === 'size' && (sortOrder === 'desc' ? '↓' : '↑')}
                   </th>
-                  <th className="px-4 py-3 font-semibold">층</th>
+                  <th className="px-4 py-3 font-semibold">연면적</th>
                   {tradeType === 'sale' ? (
                     <th className="px-4 py-3 font-semibold cursor-pointer hover:text-emerald-600 text-right" onClick={() => handleSort('price')}>
                       거래가 {sortBy === 'price' && (sortOrder === 'desc' ? '↓' : '↑')}
@@ -243,8 +243,8 @@ export default function ApartmentTradePage() {
                         {item.dong} {item.jibun}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{item.size.toFixed(2)}㎡</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{item.floor}층</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.landArea.toFixed(2)}㎡</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.totalFloorArea.toFixed(2)}㎡</td>
                     {tradeType === 'sale' && 'price' in item ? (
                       <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-emerald-600">{formatPrice(item.price)}</span>
