@@ -11,11 +11,11 @@ import {
   Calculator,
   FileText,
   BarChart3,
+  Landmark,
   Menu,
   X,
   ChevronDown,
   ChevronRight,
-  Landmark,
 } from 'lucide-react';
 
 const menuItems = [
@@ -61,7 +61,6 @@ const menuItems = [
     children: [
       { label: '아파트 단지 검색', path: '/complex/search' },
       { label: '건물 통합 조회', path: '/building/info' },
-      { label: '경매 정보', path: '/auction/info' },
     ],
   },
   {
@@ -70,9 +69,7 @@ const menuItems = [
     children: [
       { label: '지역 비교', path: '/area/compare' },
       { label: '인구/세대', path: '/area/population' },
-      { label: '개발 호재', path: '/area/development' },
       { label: '학군 정보', path: '/area/school' },
-      { label: '주변 인프라', path: '/area/infra' },
     ],
   },
   {

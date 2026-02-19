@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Zap, Search, Loader2, AlertCircle } from 'lucide-react';
+import { Zap, Search, Loader2, AlertCircle, ArrowUpDown, BarChart3 } from 'lucide-react';
 import { SEOUL_DISTRICTS, LAWD_CD } from '@/lib/constants';
 
 interface EnergyItem {
@@ -26,6 +26,11 @@ function formatNumber(value: string): string {
   return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 }
 
+function parseNum(value: string): number {
+  const num = parseFloat(value);
+  return isNaN(num) ? 0 : num;
+}
+
 export default function BuildingEnergyPage() {
   const [data, setData] = useState<EnergyItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,6 +43,9 @@ export default function BuildingEnergyPage() {
   const [bun, setBun] = useState('');
   const [ji, setJi] = useState('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [sortBy, setSortBy] = useState<'period' | 'elec' | 'gas' | 'total'>('period');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
     const fetchDongList = async () => {
@@ -70,6 +78,7 @@ export default function BuildingEnergyPage() {
 
     setLoading(true);
     setError(null);
+    setSearched(true);
 
     try {
       const sigunguCd = LAWD_CD[selectedDistrict];
@@ -102,12 +111,45 @@ export default function BuildingEnergyPage() {
     if (e.key === 'Enter') fetchData();
   };
 
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case 'period':
+          cmp = (`${a.useYear}${a.useMonth}`).localeCompare(`${b.useYear}${b.useMonth}`);
+          break;
+        case 'elec':
+          cmp = parseNum(a.elecUsage) - parseNum(b.elecUsage);
+          break;
+        case 'gas':
+          cmp = parseNum(a.gasUsage) - parseNum(b.gasUsage);
+          break;
+        case 'total':
+          cmp = parseNum(a.totalEnergy) - parseNum(b.totalEnergy);
+          break;
+      }
+      return sortOrder === 'desc' ? -cmp : cmp;
+    });
+  }, [data, sortBy, sortOrder]);
+
+  const handleSort = (field: typeof sortBy) => {
+    if (sortBy === field) setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+    else { setSortBy(field); setSortOrder(field === 'period' ? 'asc' : 'desc'); }
+  };
+
   const stats = useMemo(() => {
     if (data.length === 0) return null;
-    const totalElec = data.reduce((sum, item) => sum + (parseFloat(item.elecUsage) || 0), 0);
-    const totalGas = data.reduce((sum, item) => sum + (parseFloat(item.gasUsage) || 0), 0);
-    return { count: data.length, totalElec, totalGas };
+    const totalElec = data.reduce((sum, item) => sum + parseNum(item.elecUsage), 0);
+    const totalGas = data.reduce((sum, item) => sum + parseNum(item.gasUsage), 0);
+    const totalHeat = data.reduce((sum, item) => sum + parseNum(item.heatUsage), 0);
+    const avgElec = totalElec / data.length;
+    const avgGas = totalGas / data.length;
+    return { count: data.length, totalElec, totalGas, totalHeat, avgElec, avgGas };
   }, [data]);
+
+  const maxTotal = useMemo(() => Math.max(...data.map(d => parseNum(d.totalEnergy)), 1), [data]);
+
+  const dongName = dongList.find(d => d.bjdongCd === selectedDong)?.name || '';
 
   return (
     <div className="space-y-6">
@@ -120,7 +162,7 @@ export default function BuildingEnergyPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div>
             <label className="block text-xs text-gray-500 mb-1">구</label>
             <select
@@ -217,20 +259,68 @@ export default function BuildingEnergyPage() {
       )}
 
       {!loading && !error && stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-500 mb-1">조회 건수</div>
-            <div className="text-xl font-bold text-gray-900">{stats.count}건</div>
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-500 mb-1">조회 건수</div>
+              <div className="text-xl font-bold text-gray-900">{stats.count}건</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-500 mb-1">총 전기사용량</div>
+              <div className="text-xl font-bold text-yellow-600">{stats.totalElec.toLocaleString('ko-KR', { maximumFractionDigits: 0 })} kWh</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-500 mb-1">총 가스사용량</div>
+              <div className="text-xl font-bold text-blue-600">{stats.totalGas.toLocaleString('ko-KR', { maximumFractionDigits: 0 })} m³</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-500 mb-1">월평균 전기</div>
+              <div className="text-xl font-bold text-yellow-600">{stats.avgElec.toLocaleString('ko-KR', { maximumFractionDigits: 0 })} kWh</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-500 mb-1">월평균 가스</div>
+              <div className="text-xl font-bold text-blue-600">{stats.avgGas.toLocaleString('ko-KR', { maximumFractionDigits: 0 })} m³</div>
+            </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-500 mb-1">총 전기사용량</div>
-            <div className="text-xl font-bold text-emerald-600">{stats.totalElec.toLocaleString('ko-KR', { maximumFractionDigits: 2 })} kWh</div>
+
+          {/* 간이 차트 */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 size={18} className="text-emerald-600" />
+              <h3 className="font-semibold text-gray-900">월별 에너지 사용 추이</h3>
+              <span className="text-xs text-gray-400 ml-auto">
+                {selectedDistrict} {dongName} {bun && `${bun}`}{ji && `-${ji}`} · {selectedYear}년
+              </span>
+            </div>
+            <div className="space-y-2">
+              {[...data].sort((a, b) => (`${a.useYear}${a.useMonth}`).localeCompare(`${b.useYear}${b.useMonth}`)).map((item) => {
+                const total = parseNum(item.totalEnergy);
+                const elec = parseNum(item.elecUsage);
+                const gas = parseNum(item.gasUsage);
+                const elecPct = maxTotal > 0 ? (elec / maxTotal) * 100 : 0;
+                const gasPct = maxTotal > 0 ? (gas / maxTotal) * 100 : 0;
+                return (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 w-14 text-right flex-shrink-0">
+                      {item.useMonth}월
+                    </span>
+                    <div className="flex-1 flex h-5 bg-gray-50 rounded overflow-hidden">
+                      <div className="bg-yellow-400 h-full" style={{ width: `${elecPct}%` }} title={`전기 ${formatNumber(item.elecUsage)} kWh`} />
+                      <div className="bg-blue-400 h-full" style={{ width: `${gasPct}%` }} title={`가스 ${formatNumber(item.gasUsage)} m³`} />
+                    </div>
+                    <span className="text-xs text-gray-600 w-20 text-right flex-shrink-0">
+                      {formatNumber(item.totalEnergy)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-yellow-400" /> 전기</div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-blue-400" /> 가스</div>
+            </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-500 mb-1">총 가스사용량</div>
-            <div className="text-xl font-bold text-emerald-600">{stats.totalGas.toLocaleString('ko-KR', { maximumFractionDigits: 2 })} ㎥</div>
-          </div>
-        </div>
+        </>
       )}
 
       {!loading && !error && data.length > 0 && (
@@ -239,28 +329,42 @@ export default function BuildingEnergyPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr className="text-left text-sm text-gray-600">
-                  <th className="px-4 py-3 font-semibold">기간</th>
-                  <th className="px-4 py-3 font-semibold text-right">전기 (kWh)</th>
-                  <th className="px-4 py-3 font-semibold text-right">가스 (㎥)</th>
-                  <th className="px-4 py-3 font-semibold text-right">합계</th>
+                  <th className="px-4 py-3 font-semibold cursor-pointer hover:text-emerald-600" onClick={() => handleSort('period')}>
+                    기간 {sortBy === 'period' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </th>
+                  <th className="px-4 py-3 font-semibold text-right cursor-pointer hover:text-emerald-600" onClick={() => handleSort('elec')}>
+                    전기 (kWh) {sortBy === 'elec' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </th>
+                  <th className="px-4 py-3 font-semibold text-right cursor-pointer hover:text-emerald-600" onClick={() => handleSort('gas')}>
+                    가스 (m³) {sortBy === 'gas' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </th>
+                  <th className="px-4 py-3 font-semibold text-right cursor-pointer hover:text-emerald-600" onClick={() => handleSort('total')}>
+                    합계 {sortBy === 'total' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </th>
+                  <th className="px-4 py-3 font-semibold w-24"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {data.map((item) => (
+                {sortedData.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {item.useYear}-{item.useMonth.padStart(2, '0')}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    <td className="px-4 py-3 text-right text-sm text-yellow-700 font-medium">
                       {formatNumber(item.elecUsage)}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    <td className="px-4 py-3 text-right text-sm text-blue-700 font-medium">
                       {formatNumber(item.gasUsage)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="font-semibold text-emerald-600">
                         {formatNumber(item.totalEnergy)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${(parseNum(item.totalEnergy) / maxTotal) * 100}%` }} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -270,13 +374,22 @@ export default function BuildingEnergyPage() {
         </div>
       )}
 
-      {!loading && !error && data.length === 0 && selectedDong && (
+      {!loading && !error && data.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <div className="text-gray-400 mb-2">
             <Zap size={48} className="mx-auto" />
           </div>
-          <p className="text-gray-500">검색 버튼을 눌러 에너지 정보를 조회하세요.</p>
-          <p className="text-sm text-gray-400 mt-1">본번을 입력하면 더 정확한 결과를 확인할 수 있습니다.</p>
+          {searched ? (
+            <>
+              <p className="text-gray-500">조회 결과가 없습니다.</p>
+              <p className="text-sm text-gray-400 mt-1">검색 조건을 변경하여 다시 시도해보세요.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500">검색 버튼을 눌러 에너지 정보를 조회하세요.</p>
+              <p className="text-sm text-gray-400 mt-1">본번을 입력하면 더 정확한 결과를 확인할 수 있습니다.</p>
+            </>
+          )}
         </div>
       )}
 
@@ -286,6 +399,7 @@ export default function BuildingEnergyPage() {
           <li>• 건물 에너지 데이터는 국토교통부 건물에너지 정보 서비스에서 제공됩니다.</li>
           <li>• 구와 동을 선택한 후 검색 버튼을 눌러주세요.</li>
           <li>• 본번/부번을 입력하면 특정 건물을 조회할 수 있습니다.</li>
+          <li>• 테이블 헤더를 클릭하면 정렬할 수 있습니다.</li>
         </ul>
       </div>
     </div>

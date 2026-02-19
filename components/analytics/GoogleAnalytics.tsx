@@ -1,18 +1,20 @@
-'use client';
-
 import Script from 'next/script';
 
-const GA_ID = 'G-XXXXXXXXXX'; // TODO: Replace with actual GA ID
+interface GoogleAnalyticsProps {
+  gaId?: string;
+}
 
-export default function GoogleAnalytics() {
-  if (!GA_ID || GA_ID === 'G-XXXXXXXXXX') {
+export default function GoogleAnalytics({ gaId }: GoogleAnalyticsProps) {
+  const measurementId = gaId || process.env.NEXT_PUBLIC_GA_ID;
+
+  if (!measurementId) {
     return null;
   }
 
   return (
     <>
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
         strategy="afterInteractive"
       />
       <Script id="google-analytics" strategy="afterInteractive">
@@ -20,7 +22,7 @@ export default function GoogleAnalytics() {
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', '${GA_ID}');
+          gtag('config', '${measurementId}');
         `}
       </Script>
     </>
